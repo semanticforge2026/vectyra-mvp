@@ -75,6 +75,11 @@ def get_match_scores(source_text, target_texts):
 st.set_page_config(page_title="Vectyra AI", page_icon="🚀", layout="centered")
 st.title("🚀 Vectyra AI: Рекрутинг майбутнього")
 
+# --- ІНІЦІАЛІЗАЦІЯ СЕЙФУ (SESSION STATE) ---
+# Якщо в сейфі ще немає ключа 'current_resume_text', створюємо його пустим
+if 'current_resume_text' not in st.session_state:
+    st.session_state['current_resume_text'] = ""
+
 # Створюємо дві вкладки для зручності
 tab1, tab2 = st.tabs(["📂 Додавання кандидата в БД", "🎯 Аналіз збігу (Match)"])
 
@@ -92,7 +97,14 @@ with tab1:
                 resume_text = extract_text_from_bytes(file_bytes)
 
             if resume_text:
-                st.success("✅ Текст витягнуто!")
+                # 🛡️ ФІКС: Зберігаємо витягнутий текст у "сейф", щоб він пережив перезапуск
+                st.session_state['current_resume_text'] = resume_text
+                
+                st.success("✅ Текст витягнуто та збережено для аналізу!")
+                
+                # Показуємо прев'ю тексту
+                with st.expander("Подивитися розпізнаний текст"):
+                    st.write(resume_text)
 
                 with st.spinner("🧠 ШІ генерує вектор..."):
                     embedding_vector = get_embedding(resume_text)
@@ -115,8 +127,17 @@ with tab2:
     st.markdown("Введіть опис вакансії та текст резюме кандидата для швидкої перевірки.")
 
     vacancy_text = st.text_area("📝 Опис вакансії:", height=150, placeholder="Введіть вимоги до кандидата...")
-    candidate_text = st.text_area("👤 Досвід кандидата (Резюме):", height=150,
-                                  placeholder="Введіть досвід роботи та навички...")
+    
+    # 🛡️ ФІКС: Використовуємо 'st.session_state['current_resume_text']' як початкове значення (value)
+    # Тепер, якщо користувач завантажив PDF у вкладці 1, текст з'явиться тут автоматично.
+    candidate_text = st.text_area("👤 Досвід кандидата (Резюме):", 
+                                  value=st.session_state['current_resume_text'], # <--- МАГІЯ ТУТ
+                                  height=150,
+                                  placeholder="Завантажте PDF у вкладці 1 або введіть досвід роботи вручну...")
+
+    # Інформуємо користувача, якщо текст підставився автоматично
+    if st.session_state['current_resume_text']:
+        st.info("💡 Текст резюме було завантажено автоматично з останньої PDF. Ви можете його редагувати.")
 
     if st.button("🚀 Аналізувати збіг", type="primary", key="match_btn"):
         if vacancy_text and candidate_text:
